@@ -1,4 +1,5 @@
 import re # regular expression to filter out punctuations
+import math # math to do log calcualtions
 
 def getTokens(text) -> list[str]:
     '''
@@ -25,26 +26,44 @@ def getTokens(text) -> list[str]:
 
 
 # TODO: this function is still in dev
-def getInvertedIndex(tokens) -> dict[str, list[int]]:
+def getInvertedIndex(tokens1) -> dict[str, list[int]]:
     '''
     get the inverted index
     :param tokens: the tokenized text (list)
     :return: the inverted index (dict)
     '''
-    inverted_index = {}  # use hashmap to store the inverted index
 
+    tokens2 = [tokens1]
+    inverted_index,counters = {},{}  # use hashmap to store the inverted index
+    
     # iter through the tokens
-    for token in tokens:
-        # if the token is already in the inverted index
-        if token in inverted_index:
-            # TODO
-            inverted_index[token] += 1
-        # if the token is not exist in the inverted index
-        else:
-            # TODO
-            inverted_index[token] = 1
+    for i, tokens in enumerate(tokens2):
+        for token in tokens:
+            
+            if token not in inverted_index:
+                inverted_index[token] = [i]
+            else:
+                inverted_index[token].append(i)
+            if token not in counters:
+                counters[token] = 1
+            else:
+                counters[token] += 1
+    
+        
+    inverse_document_frequency = {}
+    for word, document_indices in inverted_index.items():
+        inverse_document_frequency[word] = math.log(len(tokens2) / len(document_indices))
+    print(inverse_document_frequency)
 
-    return inverted_index
+
+    weights = {}
+    for document_index, tokens in enumerate(tokens2):
+        for word in tokens:
+            term_frequency = tokens.count(word) / len(tokens)
+            weights[(word, document_index)] = term_frequency * inverse_document_frequency[word]
+    print(weights)
+    print(inverted_index)
+    return inverted_index, weights
 
 
 if __name__ == '__main__':
