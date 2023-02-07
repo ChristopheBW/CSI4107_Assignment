@@ -35,11 +35,11 @@ def getInvertedIndex(tokens1) -> dict[str, list[int]]:
 
     tokens2 = [tokens1]
     inverted_index,counters = {},{}  # use hashmap to store the inverted index
-    
+
     # iter through the tokens
     for i, tokens in enumerate(tokens2):
         for token in tokens:
-            
+
             if token not in inverted_index:
                 inverted_index[token] = [i]
             else:
@@ -48,8 +48,8 @@ def getInvertedIndex(tokens1) -> dict[str, list[int]]:
                 counters[token] = 1
             else:
                 counters[token] += 1
-    
-        
+
+
     inverse_document_frequency = {}
     for word, document_indices in inverted_index.items():
         inverse_document_frequency[word] = math.log(len(tokens2) / len(document_indices))
