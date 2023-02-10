@@ -17,7 +17,7 @@ class Extractor:
 
         self.collection_path = collection_path
         self.query_path = query_path
-        self.query = {}
+        self.queries = {}
         self.load_query()
         self.collection = {}
 
@@ -175,7 +175,7 @@ class Extractor:
                 # Tokenize the title
                 tokens = self.tokenize(title[0])
                 # Add the query number and tokenized title to the hashmap
-                self.query[queryno[0]] = tokens
+                self.queries[queryno[0]] = tokens
 
     def save_collection(self, output_path):
         """ Save the collection to the given path
@@ -215,14 +215,14 @@ class Extractor:
 
         return self.collection
 
-    def get_query(self):
+    def get_queries(self):
         """ Get the query
 
         :return: a hashmap of the query number and tokens
         :rtype: dict
         """
 
-        return self.query
+        return self.queries
 
 
 if __name__ == '__main__':

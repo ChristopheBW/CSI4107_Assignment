@@ -1,8 +1,29 @@
 import math
 import re  # regular expression to filter out punctuations
+import multiprocessing
+import Extractor
 
 
 class IRSystem:
+
+    def __init__(self, collection_path, query_path):
+        self.extractor = Extractor.Extractor(collection_path, query_path)
+        self.collection = self.extractor.get_collection()
+        self.queries = self.extractor.get_queries()
+        self.docno_list = list(self.collection.keys())
+        self.tokens_list = list(self.collection.values())
+        self.N = len(self.docno_list)
+        # self.inverted_index = self.tf_idf(self.tokens_list)
+        self.weights = {}
+
+    # def get_inverted_index(self):
+    #     """ get the inverted index
+    #
+    #     :return: the inverted index
+    #     :rtype: dict
+    #     """
+    #
+    #     return self.inverted_index
 
     # tf-idf implementation by "GEGEFE"
     def getInvertedIndex(self, tokens1):
@@ -45,9 +66,31 @@ class IRSystem:
         print(inverted_index)
         return inverted_index, weights
 
+    def get_tf_df(self, doc, j):
+        """ get the tf of each term in each document and df
+
+        :param doc: the tokenized doc
+        :type tokens: list
+        :param j: the index of the doc
+        :type j: int
+        :return: the term frequency of each term in each document
+        :rtype: dict
+        """
+        
+        partial_tf_df = {}
+
+        for term in doc:
+            if term not in partial_tf_df:
+                partial_tf_df[term] = [0] * (self.N + 1)
+            partial_tf_df[term][j] += 1
+            partial_tf_df[term][-1] += 1
+        
+        return partial_tf_df
+
+
     # tf-idf implementation by "NullPointer"
     def tf_idf(self, tokenized_docs):
-        '''Calculates the tf-idf weight for each term in each document
+        '''Calculates the tf-idf weight for each term in each document with multiprocessing.
 
         :param tokenized_docs: the tokenized documents
         :type tokenized_docs: list
@@ -55,52 +98,44 @@ class IRSystem:
         :rtype: dict
         '''
 
-        # N: total number of documents
-        N = len(tokenized_docs)
-
         # tf: a hashmap of term frequency in each document
-        #   structure: term -> [tf_doc1, tf_doc2, ...]
+        #   structure: term -> [tf_doc1, tf_doc2, ..., df]
         #   where tf_doc1 is the term frequency in document 1
-        #   example: {'computer': [1, 0, 2, ..., 4], 'data': [2, 1, 3, ..., 0]}
-        tf = {}
+        #   and the last element stores the total term frequency in all documents
+        #   example: {'computer': [1, 0, 2, ..., 4], 'data': [2, 1, 3, ..., 8]}
+        tf_df = {}
+        pool = multiprocessing.Pool()
+        process_list = []
+
         for j in range(len(tokenized_docs)):
             doc = tokenized_docs[j]
-            for term in doc:
-                if term not in tf:
-                    tf[term] = [0] * N
-                tf[term][j] += 1
+            process_list.append(pool.apply_async(self.get_tf_df, (doc, j)))
 
-        # print('tf: ', tf)
+        pool.close()
+        pool.join()
 
-        # df: a hashmap of document frequency of each term
-        #   structure: term -> df
-        #   example: {'computer': 3, 'data': 5}
-        df = {}
-        for term in tf:
-            df[term] = sum([1 for i in tf[term] if i > 0])
+        for process in process_list:
+            partial_tf_df = process.get()
+            for term, tf_df_list in partial_tf_df.items():
+                if term not in tf_df:
+                    tf_df[term] = tf_df_list
+                else:
+                    for i in range(len(tf_df_list)):
+                        tf_df[term][i] += tf_df_list[i]
 
-        # print('df: ', df)
-
-        # idf: a hashmap of inverse document frequency of each term
-        #   structure: term -> idf
-        #   example: {'computer': 0.5, 'data': 0.2}
-        idf = {}
-        for term in df:
-            idf[term] = math.log2(N / df[term])
-
-        # print('idf: ', idf)
+        # print('tf_df: ', tf_df)
 
         # tf-idf: a hashmap of tf-idf weight for each term in each document
         #   structure: term -> [tf-idf_doc1, tf-idf_doc2, ...]
         #   where tf-idf_doc1 is the tf-idf weight of the term in document 1
         #   example: {'computer': [0.5, 0, 1, ..., 2], 'data': [1, 0.5, 1.5, ..., 0]}
         tf_idf = {}
-        for term in tf:
-            tf_idf[term] = [tf[term][i] * idf[term] for i in range(N)]
+        for term in tf_df:
+            tf_idf[term] = [tf_df[term][i] * math.log2(self.N / tf_df[term][-1]) for i in range(self.N)]
 
         return tf_idf
 
-    def getCosineSimilarity(self, query, tf_idf):
+    def get_cosine_similarity(self, query, tf_idf):
         '''Calculates the cosine similarity of each indexed documents as query words are processed one by one.
 
         :param query: the query in text
@@ -158,3 +193,7 @@ class IRSystem:
             rankedList.append(id[0])
 
         return rankedList
+
+
+if __name__ == '__main__':
+    irs = IRSystem("./collection.txt", "./topics1-50.txt")
