@@ -13,7 +13,7 @@ class IRSystem:
         self.docno_list = list(self.collection.keys())
         self.tokens_list = list(self.collection.values())
         self.N = len(self.docno_list)
-        # self.inverted_index = self.tf_idf(self.tokens_list)
+        self.inverted_index = self.tf_idf(self.tokens_list)
         self.weights = {}
 
     # def get_inverted_index(self):
@@ -78,6 +78,7 @@ class IRSystem:
         """
         
         partial_tf_df = {}
+        print("child_process: {}/{}".format(j, self.N))
 
         for term in doc:
             if term not in partial_tf_df:
@@ -104,25 +105,32 @@ class IRSystem:
         #   and the last element stores the total term frequency in all documents
         #   example: {'computer': [1, 0, 2, ..., 4], 'data': [2, 1, 3, ..., 8]}
         tf_df = {}
-        pool = multiprocessing.Pool()
+        pool = multiprocessing.Pool(16)
         process_list = []
 
         for j in range(len(tokenized_docs)):
+            print("async: {}/{}".format(j, self.N))
             doc = tokenized_docs[j]
-            process_list.append(pool.apply_async(self.get_tf_df, (doc, j)))
+            # process_list.append(pool.apply_async(self.get_tf_df, (doc, j)))
+            for term in doc:
+                if term not in tf_df:
+                    tf_df[term] = [0] * (self.N + 1)
+                tf_df[term][j] += 1
+                tf_df[term][-1] += 1
 
         pool.close()
         pool.join()
 
-        for process in process_list:
-            partial_tf_df = process.get()
-            for term, tf_df_list in partial_tf_df.items():
-                if term not in tf_df:
-                    tf_df[term] = tf_df_list
-                else:
-                    for i in range(len(tf_df_list)):
-                        tf_df[term][i] += tf_df_list[i]
+        # for process in process_list:
+        #     partial_tf_df = process.get()
+        #     for term, tf_df_list in partial_tf_df.items():
+        #         if term not in tf_df:
+        #             tf_df[term] = tf_df_list
+        #         else:
+        #             for i in range(len(tf_df_list)):
+        #                 tf_df[term][i] += tf_df_list[i]
 
+        print("tf_df done")
         # print('tf_df: ', tf_df)
 
         # tf-idf: a hashmap of tf-idf weight for each term in each document
