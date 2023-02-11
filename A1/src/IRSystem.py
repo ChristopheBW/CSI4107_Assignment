@@ -10,11 +10,9 @@ class IRSystem:
         self.extractor = Extractor.Extractor(collection_path, query_path)
         self.collection = self.extractor.get_collection()
         self.queries = self.extractor.get_queries()
-        self.docno_list = list(self.collection.keys())
-        self.tokens_list = list(self.collection.values())
-        self.N = len(self.docno_list)
-        self.inverted_index = self.tf_idf(self.tokens_list)
-        self.weights = {}
+        self.N = len(self.collection)
+        self.inverted_index = {}
+        self.load_tf_idf()
 
     # def get_inverted_index(self):
     #     """ get the inverted index
@@ -66,142 +64,119 @@ class IRSystem:
         print(inverted_index)
         return inverted_index, weights
 
-    def get_tf_df(self, doc, j):
-        """ get the tf of each term in each document and df
-
-        :param doc: the tokenized doc
-        :type tokens: list
-        :param j: the index of the doc
-        :type j: int
-        :return: the term frequency of each term in each document
-        :rtype: dict
-        """
-        
-        partial_tf_df = {}
-        print("child_process: {}/{}".format(j, self.N))
-
-        for term in doc:
-            if term not in partial_tf_df:
-                partial_tf_df[term] = [0] * (self.N + 1)
-            partial_tf_df[term][j] += 1
-            partial_tf_df[term][-1] += 1
-        
-        return partial_tf_df
-
-
     # tf-idf implementation by "NullPointer"
-    def tf_idf(self, tokenized_docs):
+    def load_tf_idf(self, file_path=None):
         '''Calculates the tf-idf weight for each term in each document with multiprocessing.
+        O(N * M) where N is the number of documents and M is the avg number of terms
 
-        :param tokenized_docs: the tokenized documents
-        :type tokenized_docs: list
+        :param file_path: the file path to load the inverted index
+        :type file_path: str
         :return: the hashmap of tf-idf weight for each term in each document
         :rtype: dict
         '''
 
-        # tf: a hashmap of term frequency in each document
-        #   structure: term -> [tf_doc1, tf_doc2, ..., df]
-        #   where tf_doc1 is the term frequency in document 1
-        #   and the last element stores the total term frequency in all documents
-        #   example: {'computer': [1, 0, 2, ..., 4], 'data': [2, 1, 3, ..., 8]}
-        tf_df = {}
-        pool = multiprocessing.Pool(16)
-        process_list = []
+        if file_path is None:
+            # tf_df: a hashmap of term frequency in each document and document frequency
+            #   structure: term -> {docno -> tf, ... , "df" -> df}
+            #   example: "the" -> {d0 -> 2, d1 -> 1, d2 -> 3, "df" -> 6}
+            tf_df = {}
 
-        for j in range(len(tokenized_docs)):
-            print("async: {}/{}".format(j, self.N))
-            doc = tokenized_docs[j]
-            # process_list.append(pool.apply_async(self.get_tf_df, (doc, j)))
-            for term in doc:
-                if term not in tf_df:
-                    tf_df[term] = [0] * (self.N + 1)
-                tf_df[term][j] += 1
-                tf_df[term][-1] += 1
+            for docno, tokens in self.collection.items():
+                for token in tokens:
+                    if token not in tf_df:
+                        tf_df[token] = {"df": 0}
+                    if docno not in tf_df[token]:
+                        tf_df[token][docno] = 1
+                    else:
+                        tf_df[token][docno] += 1
+                    tf_df[token]["df"] += 1
 
-        pool.close()
-        pool.join()
+            print("tf_df done")
+            # print('tf_df: ', tf_df)
 
-        # for process in process_list:
-        #     partial_tf_df = process.get()
-        #     for term, tf_df_list in partial_tf_df.items():
-        #         if term not in tf_df:
-        #             tf_df[term] = tf_df_list
-        #         else:
-        #             for i in range(len(tf_df_list)):
-        #                 tf_df[term][i] += tf_df_list[i]
+            # tf-idf: a hashmap of tf-idf weight for each term in each document
+            #   structure: term -> {docno -> tf-idf}
+            #   example: "the" -> {d0 -> 0.1, d1 -> 0.05, d2 -> 0.15}
+            self.inverted_index = {}
+            for term in tf_df:
+                self.inverted_index[term] = {}
+                for docno in tf_df[term]:
+                    if docno == "df":
+                        continue
+                    self.inverted_index[term][docno] = tf_df[term][docno] * math.log2(
+                        self.N / tf_df[term]["df"])
 
-        print("tf_df done")
-        # print('tf_df: ', tf_df)
+            print("tf_idf done")
+        else: # load from file
+            with open(file_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    term, docnos = line.split(":")
+                    self.inverted_index[term] = {}
+                    for docno in docnos.split():
+                        self.inverted_index[term][docno] = float(docnos.split()[1])
 
-        # tf-idf: a hashmap of tf-idf weight for each term in each document
-        #   structure: term -> [tf-idf_doc1, tf-idf_doc2, ...]
-        #   where tf-idf_doc1 is the tf-idf weight of the term in document 1
-        #   example: {'computer': [0.5, 0, 1, ..., 2], 'data': [1, 0.5, 1.5, ..., 0]}
-        tf_idf = {}
-        for term in tf_df:
-            tf_idf[term] = [tf_df[term][i] * math.log2(self.N / tf_df[term][-1]) for i in range(self.N)]
+    def save_inverted_index(self, file_path):
+        """ save the inverted index to a file
 
-        return tf_idf
+        :param file_path: the file path to save the inverted index
+        :type file_path: str
+        :return: None
+        """
 
-    def get_cosine_similarity(self, query, tf_idf):
-        '''Calculates the cosine similarity of each indexed documents as query words are processed one by one.
+        with open(file_path, "w") as f:
+            for term in self.inverted_index:
+                f.write(term + ": ")
+                for docno in self.inverted_index[term]:
+                    f.write(docno + " " + str(self.inverted_index[term][docno]) + " ")
+                f.write("\n")
 
-        :param query: the query in text
+    def get_cosine_similarity(self, query):
+        '''Calculates the cosine similarity between the query and each document.
+
+        :param query: the tokenized query
         :type query: list
-        :param tf_idf
-        :type tf_idf: dict
         :return: ranked list of documented in reversed order of their relevance.
         :rtype: list
         '''
 
-        # Finds the number of documents that contain one or more query words.
-        # The list then contains the documents that have the one of the query word.
-        docContain = []
+        # calculate the query vector
+        print(query)
+        query_vector = {}
         for term in query:
-            if term in tf_idf:
-                for i in range(len(tf_idf[term])):
-                    if tf_idf[term][i] > 0:
-                        docContain = list(set(docContain + [i]))
+            if term not in query_vector:
+                query_vector[term] = 1
+            else:
+                query_vector[term] += 1
 
-        # Calculates the cosine similarity of each indexed documents and the query words.
-        # Incrementally computes cosine similarity of each indexed documents as query words are
-        # processed one by one.
-        cosSimilarity = {}
+        # calculate the document vector
+        document_vectors = {}
+        for term in query_vector:
+            if term in self.inverted_index:
+                for docno in self.inverted_index[term]:
+                    if docno not in document_vectors:
+                        document_vectors[docno] = {}
+                    document_vectors[docno][term] = self.inverted_index[term][docno]
 
-        for doc in docContain:
-            cosSimilarity[doc] = 0
-            querytf_idf = 0
-            doctf_idf = 0
-            for term in query:
-                if term in tf_idf:
-                    querytf_idf += tf_idf[term][doc]
-                    doctf_idf += math.pow(tf_idf[term][doc], 2)
+        # calculate the cosine similarity
+        cosine_similarities = {}
+        for docno in document_vectors:
+            cosine_similarities[docno] = 0
+            for term in query_vector:
+                if term in document_vectors[docno]:
+                    cosine_similarities[docno] += query_vector[term] * document_vectors[docno][term]
 
-            sumQ = 0.0
-            for term in tf_idf:
-                sumQ += math.pow(tf_idf[term][doc], 2)
+        # normalize the cosine similarity
+        for docno in cosine_similarities:
+            cosine_similarities[docno] /= math.sqrt(len(query_vector) * len(document_vectors[docno]))
 
-            queryMagnitude = math.sqrt(sumQ)
-            docMagnitude = math.sqrt(doctf_idf)
+        # sort the cosine similarity
+        cosine_similarities = sorted(cosine_similarities.items(), key=lambda x: x[1], reverse=True)
 
-            # Result measurement should be values that are bound by a constrained range of 0 and 1.
-            cosSimilarity[doc] = querytf_idf / (queryMagnitude * docMagnitude)
-
-        print(cosSimilarity)
-
-        # Sorts the result based on the value of cosine similarity.
-        # Returns the documents in descending order of their relevance.
-        # It is ordered in reverse order of their relevance.
-        relevantDoc = list(cosSimilarity.items())
-        relevantDoc.sort(key=lambda a: a[1], reverse=True)
-
-        # List that is ranked contains the ids of the relevant document.
-        rankedList = []
-        for id in relevantDoc:
-            rankedList.append(id[0])
-
-        return rankedList
-
+        return cosine_similarities[:50]
 
 if __name__ == '__main__':
     irs = IRSystem("./collection.txt", "./topics1-50.txt")
+    # irs.save_inverted_index("./inverted_index.txt")
+    ranked_list = irs.get_cosine_similarity(irs.queries["1"])
+    print(ranked_list)
