@@ -175,7 +175,8 @@ class Extractor:
                 # Tokenize the title
                 tokens = self.tokenize(title[0])
                 # Add the query number and tokenized title to the hashmap
-                self.queries[queryno[0]] = tokens
+                
+                self.queries[queryno[0].strip()] = tokens
 
     def save_collection(self, output_path):
         """ Save the collection to the given path
@@ -226,8 +227,8 @@ class Extractor:
 
 
 if __name__ == '__main__':
-    # extractor = Extractor('./Collection/', './topics1-50.txt')
-    # extractor.save_collection('./collection.txt')
+    extractor = Extractor('./Collection/', './topics1-50.txt')
+    extractor.save_collection('./collection.txt')
 
     extractor = Extractor('./collection.txt', './topics1-50.txt')
 
