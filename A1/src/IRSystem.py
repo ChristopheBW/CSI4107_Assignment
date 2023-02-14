@@ -43,7 +43,7 @@ class IRSystem:
         for word, document_indices in inverted_index.items():
             inverse_document_frequency[word] = math.log(
                 len(tokens2) / len(document_indices))
-        print(inverse_document_frequency)
+        
 
         weights = {}
         for document_index, tokens in enumerate(tokens2):
@@ -51,8 +51,7 @@ class IRSystem:
                 term_frequency = tokens.count(word) / len(tokens)
                 weights[(word, document_index
                          )] = term_frequency * inverse_document_frequency[word]
-        print(weights)
-        print(inverted_index)
+        
         return inverted_index, weights
 
     # tf-idf implementation by "NullPointer"
