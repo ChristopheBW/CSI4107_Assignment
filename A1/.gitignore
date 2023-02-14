@@ -1,5 +1,6 @@
 __pycache__/
 src/collection.txt
 src/inverted_index.txt
+src/results.txt
 src/t
 src/c

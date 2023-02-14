@@ -90,7 +90,7 @@ class Extractor:
             flag_text = False  # indicate whether the current line is in a text
             docno = ""
             text = ""
-            docno_inversed_index_map = {}
+            collection = {}
 
             for line in file:
                 # print(line)
@@ -120,12 +120,13 @@ class Extractor:
                     if not flag_doc:
                         raise Exception("Error: </DOC> tag is not opened")
                     flag_doc = False
-                    tokens = self.tokenize(text)
-                    docno_inversed_index_map[docno] = tokens
+                    # tokens = self.tokenize(text)
+                    # collection[docno] = tokens
+                    collection[docno] = text
                     docno = ""
                     text = ""
 
-        return docno_inversed_index_map
+        return collection
 
     def load_collection(self, output_path=None):
         """ Load all files from the collection path, map the docno and tokens
@@ -137,7 +138,8 @@ class Extractor:
         if output_path is not None:
             if not os.path.exists(output_path):
                 raise Exception("Error: the output path does not exist")
-            self.collection = self.load_collection_from_file(output_path)
+            # self.collection = self.load_collection_from_file(output_path)
+            self.collection = self.load_collection_text_from_file(output_path)
         else:
             pool = multiprocessing.Pool()
             process_list = []
@@ -172,11 +174,16 @@ class Extractor:
                 # Extract query number and title from the file by using regex
                 queryno = re.findall(r'<num>(.*?)\n', q)
                 title = re.findall(r'<title>(.*?)\n', q)
+                desc = re.findall(r'<desc>(.*?)<narr>', q, re.DOTALL | re.MULTILINE)
+                query = title[0] + " " + desc[0]
+                # remove \n in the query
+                query = query.replace("\n", " ")
                 # Tokenize the title
-                tokens = self.tokenize(title[0])
+                # tokens = self.tokenize(title[0])
                 # Add the query number and tokenized title to the hashmap
                 
-                self.queries[queryno[0].strip()] = tokens
+                # self.queries[queryno[0].strip()] = tokens
+                self.queries[queryno[0].strip()] = query
 
     def save_collection(self, output_path):
         """ Save the collection to the given path
@@ -228,8 +235,10 @@ class Extractor:
 
 if __name__ == '__main__':
     extractor = Extractor('./Collection/', './topics1-50.txt')
-    extractor.save_collection('./collection.txt')
+    # extractor.save_collection_text('./collection.txt')
+    #
+    # extractor = Extractor('./collection.txt', './topics1-50.txt')
 
-    extractor = Extractor('./collection.txt', './topics1-50.txt')
-
-    print(extractor.collection["AP881001-0003"])
+    # print(extractor.collection["AP881001-0003"])
+    for query in extractor.queries:
+        print(query, extractor.queries[query])

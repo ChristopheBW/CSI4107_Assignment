@@ -1,6 +1,8 @@
 import math
 import Extractor
-from collections import defaultdict
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
 
 class IRSystem:
 
@@ -10,7 +12,7 @@ class IRSystem:
         self.queries = self.extractor.get_queries()
         self.N = len(self.collection)
         self.inverted_index = {}
-        self.load_tf_idf()
+        # self.load_tf_idf()
 
     # tf-idf implementation by "GEGEFE"
     def getInvertedIndex(self, tokens1):
@@ -91,8 +93,8 @@ class IRSystem:
                 self.inverted_index[term] = {}
                 for docno in term_map:
                     if docno != "df":
-                        self.inverted_index[term][docno] = term_map[docno] * math.log2(
-                            self.N / term_map["df"])
+                        self.inverted_index[term][docno] = term_map[
+                            docno] * math.log2(self.N / term_map["df"])
 
             print("tf_idf done")
         else:  # load from file
@@ -104,6 +106,37 @@ class IRSystem:
                     for docno in docnos.split():
                         self.inverted_index[term][docno] = float(
                             docnos.split()[1])
+
+    def sklearn_cosine_similarity(self, query):
+        """ calculate the cosine similarity between the query and each document with sklearn
+
+        :param query: the query
+        :type query: str
+        :return: the cosine similarity between the query and each document
+        :rtype: list
+        """
+
+        vectorizer = TfidfVectorizer(stop_words="english")
+        doc_query_text = list(self.collection.values()) + [query]
+        print(doc_query_text[-1:])
+        tfidf = vectorizer.fit_transform(doc_query_text)
+
+        doc_tf_idf = tfidf[:len(self.collection)]
+        query_tf_idf = tfidf[len(self.collection):]
+
+        cosine_sim_matrix = cosine_similarity(query_tf_idf[0], doc_tf_idf)
+        # Get the cosine similarity for query 1 and all documents
+        query1_cosine_sims = cosine_sim_matrix[0]
+
+        # Create a hashmap from "docno" to "cosine_sim" for query 1
+        query1_to_cosine_sim = {
+            docno: cosine_sim
+            for docno, cosine_sim in zip(self.collection.keys(),
+                                         query1_cosine_sims)
+        }
+
+        return query1_to_cosine_sim
+
 
     def get_inverted_index(self):
         """ get the inverted index
@@ -138,11 +171,9 @@ class IRSystem:
         :return: ranked list of documented in reversed order of their relevance.
         :rtype: list
         '''
-
         ''''''
         # print(query)
 
-        
         # calculate the query vector
         #   structure: term -> tf
         #   example: "the" -> 2
@@ -165,7 +196,6 @@ class IRSystem:
                     document_vectors[docno][term] = self.inverted_index[term][
                         docno]
 
-
         # calculate the cosine similarity
         cosine_similarities = {}
         for docno in document_vectors:
@@ -174,7 +204,6 @@ class IRSystem:
                 if term in document_vectors[docno]:
                     cosine_similarities[docno] += query_vector[
                         term] * document_vectors[docno][term]
-        
 
         # normalize the cosine similarity
         '''
@@ -188,37 +217,52 @@ class IRSystem:
             for term in query_vector:
                 if term in document_vectors[docno]:
                     sum1 += math.pow(query_vector[term], 2)
-                    sum2 += math.pow(document_vectors[docno][term],2)
-                    
+                    sum2 += math.pow(document_vectors[docno][term], 2)
+
             sum1 = math.sqrt(sum1)
             sum2 = math.sqrt(sum2)
-            cosine_similarities[docno] /= (sum1*sum2)
+            cosine_similarities[docno] /= (sum1 * sum2)
 
         # sort the cosine similarity
         cosine_similarities = sorted(cosine_similarities.items(),
                                      key=lambda x: x[1],
                                      reverse=True)
 
-        return cosine_similarities[:50]
-        
+        return cosine_similarities
 
 
 if __name__ == '__main__':
-    irs = IRSystem("./collection.txt", "./topics1-50.txt")
+    # irs = IRSystem("./collection.txt", "./topics1-50.txt")
+    irs = IRSystem("./Collection", "./topics1-50.txt")
     # irs.save_inverted_index("./inverted_index.txt")
     #print(irs.queries)
     #print(irs.queries["1"])
     result = ""
     rank = 1
     with open('results.txt', 'w') as f:
-        for i in range (1, len(irs.queries)+1):
-            ranked_list = irs.get_cosine_similarity(irs.queries[str(i)])
-            for j in range(len(ranked_list)):
-                if j == 1001:
-                    break
-                else:
-                    row = str(i) + " Q0 " + str(ranked_list[j][0]) + " " + str(rank) + " " + str(ranked_list[j][1]) + " run_name" + "\n"
-                    rank += 1
-                    f.write(row)
-    ranked_list = irs.get_cosine_similarity(irs.queries["1"])
-    print(ranked_list)
+        for i in range(1, len(irs.queries) + 1):
+            # ranked_list = irs.get_cosine_similarity(irs.queries[str(i)])
+            ranked_list = irs.sklearn_cosine_similarity(irs.queries[str(i)])
+            sorted_dict = sorted(ranked_list.items(),
+                                        key=lambda x: x[1],
+                                        reverse=True)
+            for docno, score in sorted_dict:
+                result += str(i) + " Q0 " + docno + " " + str(rank) + " " + str(score) + " Exp\n"
+                rank += 1
+            rank = 1
+        f.write(result)
+
+
+            # for j in range(len(ranked_list)):
+            #     if j == 1001:
+            #         break
+            #     else:
+            #         row = "{}\tQ0\t{}\t{}\t{}\tExp\n".format(
+            #             i, ranked_list[j][0], rank, ranked_list[j][1])
+            #         # row = str(i) + " Q0 " + str(
+            #         #     ranked_list[j][0]) + " " + str(rank) + " " + str(
+            #         #         ranked_list[j][1]) + " run_name" + "\n"
+            #         rank += 1
+            #         f.write(row)
+    # ranked_list = irs.get_cosine_similarity(irs.queries["1"])
+    # print(ranked_list[:10])
