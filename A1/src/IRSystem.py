@@ -1,6 +1,6 @@
 import math
 import Extractor
-
+from collections import defaultdict
 
 class IRSystem:
 
@@ -134,63 +134,15 @@ class IRSystem:
         '''Calculates the cosine similarity between the query and each document.
 
         :param query: the tokenized query
-        :type query: list
+        :type query: set
         :return: ranked list of documented in reversed order of their relevance.
         :rtype: list
         '''
+
+        ''''''
+        # print(query)
+
         
-        # RUNS SLOWLY: stucked here more than 1 minute in my computer (i9-12900K)
-        # # Finds the number of documents that contain one or more query words.
-        # # The list then contains the documents that have the one of the query word.
-        # docContain = set()
-        # for term in query:
-        #     if term in self.inverted_index:
-        #         for docno in self.inverted_index[term]:
-        #             docContain.add(docno)
-        #
-        #
-        # # Calculates the cosine similarity of each indexed documents and the query words.
-        # # Incrementally computes cosine similarity of each indexed documents as query words are
-        # # processed one by one.
-        # cosSimilarity = {}
-        #
-        # for doc in docContain:
-        #     cosSimilarity[doc] = 0
-        #     querytf_idf = 0
-        #     doctf_idf = 0
-        #     for term in query:
-        #         if term in self.inverted_index:
-        #             weight = self.inverted_index[term][doc] if doc in self.inverted_index[term] else 0
-        #             querytf_idf += weight
-        #             doctf_idf += math.pow(weight, 2)
-        #
-        #     sumQ = 0.0
-        #     for term in self.inverted_index:
-        #         weight = self.inverted_index[term][doc] if doc in self.inverted_index[term] else 0
-        #         sumQ += math.pow(weight,2)
-        #
-        #     queryMagnitude = math.sqrt(sumQ)
-        #     docMagnitude = math.sqrt(doctf_idf)
-        #
-        #     # Result measurement should be values that are bound by a constrained range of 0 and 1.
-        #     cosSimilarity[doc] = querytf_idf / (queryMagnitude * docMagnitude)
-        #
-        # print(cosSimilarity)
-        #
-        # # Sorts the result based on the value of cosine similarity.
-        # # Returns the documents in descending order of their relevance.
-        # # It is ordered in reverse order of their relevance.
-        # relevantDoc = list(cosSimilarity.items())
-        # relevantDoc.sort(key = lambda a: a[1], reverse = True)
-
-        # List that is ranked contains the ids of the relevant document.
-        # rankedList = []
-        # for id in relevantDoc:
-        #     rankedList.append(id[0])
-        #
-        # return rankedList
-
-        print(query)
         # calculate the query vector
         #   structure: term -> tf
         #   example: "the" -> 2
@@ -213,6 +165,7 @@ class IRSystem:
                     document_vectors[docno][term] = self.inverted_index[term][
                         docno]
 
+
         # calculate the cosine similarity
         cosine_similarities = {}
         for docno in document_vectors:
@@ -221,11 +174,25 @@ class IRSystem:
                 if term in document_vectors[docno]:
                     cosine_similarities[docno] += query_vector[
                         term] * document_vectors[docno][term]
+        
 
         # normalize the cosine similarity
+        '''
         for docno in cosine_similarities:
-            cosine_similarities[docno] /= math.sqrt(
-                len(query_vector) * len(document_vectors[docno]))
+            cosine_similarities[docno] /= (math.sqrt(
+                len(query_vector) * len(document_vectors[docno])))
+        '''
+        sum1 = 0
+        sum2 = 0
+        for docno in document_vectors:
+            for term in query_vector:
+                if term in document_vectors[docno]:
+                    sum1 += math.pow(query_vector[term], 2)
+                    sum2 += math.pow(document_vectors[docno][term],2)
+                    
+            sum1 = math.sqrt(sum1)
+            sum2 = math.sqrt(sum2)
+            cosine_similarities[docno] /= (sum1*sum2)
 
         # sort the cosine similarity
         cosine_similarities = sorted(cosine_similarities.items(),
@@ -233,13 +200,14 @@ class IRSystem:
                                      reverse=True)
 
         return cosine_similarities[:50]
+        
 
 
 if __name__ == '__main__':
     irs = IRSystem("./Collection.txt", "./topics1-50.txt")
     # irs.save_inverted_index("./inverted_index.txt")
-    print(irs.queries)
-    print(irs.queries["1"])
+    #print(irs.queries)
+    #print(irs.queries["1"])
     result = ""
     with open('results.txt', 'w') as f:
         for i in range (1, len(irs.queries)+1):
