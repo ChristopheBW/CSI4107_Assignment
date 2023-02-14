@@ -204,11 +204,12 @@ class IRSystem:
 
 
 if __name__ == '__main__':
-    irs = IRSystem("./Collection.txt", "./topics1-50.txt")
+    irs = IRSystem("./collection.txt", "./topics1-50.txt")
     # irs.save_inverted_index("./inverted_index.txt")
     #print(irs.queries)
     #print(irs.queries["1"])
     result = ""
+    rank = 1
     with open('results.txt', 'w') as f:
         for i in range (1, len(irs.queries)+1):
             ranked_list = irs.get_cosine_similarity(irs.queries[str(i)])
@@ -216,7 +217,8 @@ if __name__ == '__main__':
                 if j == 1001:
                     break
                 else:
-                    row = str(i) + " Q0 " + str(ranked_list[j][0]) + " " + str(ranked_list[j][1]) + " run_name" + "\n"
+                    row = str(i) + " Q0 " + str(ranked_list[j][0]) + " " + str(rank) + " " + str(ranked_list[j][1]) + " run_name" + "\n"
+                    rank += 1
                     f.write(row)
     ranked_list = irs.get_cosine_similarity(irs.queries["1"])
     print(ranked_list)
