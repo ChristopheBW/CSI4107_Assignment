@@ -147,10 +147,10 @@ class IRSystem:
         rank = 1
         result = ""
         for docno, score in sorted_dict:
-            result += f"{i}\tQ0\t{docno}\t{rank}\t{score}\tExp\n"
-            # result += str(i) + "Q0 " + docno + " " + str(rank) + " " + str(score) + " Exp\n"
-            rank += 1
-        rank = 1
+            if rank <= 1000:
+                result += f"{i}\tQ0\t{docno}\t{rank}\t{score}\tExp\n"
+                # result += str(i) + "Q0 " + docno + " " + str(rank) + " " + str(score) + " Exp\n"
+                rank += 1
         print(f"Query {i} done")
 
         return result
