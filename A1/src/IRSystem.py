@@ -21,7 +21,6 @@ def expand_query(query, model, top_n=5, similarity_threshold=0.7):
                 expanded_query.append(neighbor[1])
 
     # Check the similarity of the whole query
-    query_vector = model.get_sentence_vector(query)
     nearest_neighbors = model.get_nearest_neighbors(query, k=top_n)
 
     # Add the nearest neighbors to the expanded query if their similarity is above the threshold
