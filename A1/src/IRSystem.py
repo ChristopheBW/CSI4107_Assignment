@@ -2,10 +2,34 @@ import math
 import time
 import multiprocessing
 import Extractor
+import fasttext
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from multiprocessing.pool import ThreadPool as Pool
 
+def expand_query(query, model, top_n=5, similarity_threshold=0.7):
+    expanded_query = [query]  # include the original query
+    tokens = query.split()
 
+    # Get nearest neighbors for each token in the query
+    for token in tokens:
+        nearest_neighbors = model.get_nearest_neighbors(token, k=top_n)
+
+        # Add the nearest neighbors to the expanded query if their similarity is above the threshold
+        for neighbor in nearest_neighbors:
+            if neighbor[0] > similarity_threshold:
+                expanded_query.append(neighbor[1])
+
+    # Check the similarity of the whole query
+    query_vector = model.get_sentence_vector(query)
+    nearest_neighbors = model.get_nearest_neighbors(query, k=top_n)
+
+    # Add the nearest neighbors to the expanded query if their similarity is above the threshold
+    for neighbor in nearest_neighbors:
+        if neighbor[0] > similarity_threshold:
+            expanded_query.append(neighbor[1])
+
+    return expanded_query
 class IRSystem:
 
     def __init__(self, collection_path, query_path):
@@ -16,6 +40,7 @@ class IRSystem:
         self.Q = len(self.queries)
 
         self.inverted_index = {}
+        self.model = fasttext.load_model("D:\CSI4107\CSI4107_Assignment\A1\src\model.bin\model.bin")
         # self.load_tf_idf()
 
     # tf-idf implementation by "GEGEFE"
@@ -253,14 +278,17 @@ class IRSystem:
         '''
 
         # multiprocessing
-        pool = multiprocessing.Pool()
+        pool = Pool()
         process_list = []
 
         self.stats = 0
         for i in range(1, self.Q + 1):
+            expanded_query = " ".join(expand_query(self.queries[str(i)], self.model))
+            print(self.queries[str(i)] + " sdwdwd")
+            print(expanded_query)
             process_list.append(
                 pool.apply_async(self.sklearn_cosine_similarity,
-                                 (self.queries[str(i)], i, ),))
+                                (expanded_query, i, ),))
         pool.close()
         pool.join()
 
