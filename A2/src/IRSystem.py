@@ -40,7 +40,7 @@ class IRSystem:
         self.Q = len(self.queries)
 
         self.inverted_index = {}
-        self.model = fasttext.load_model("C:/Users/user/Documents/GitHub/CSI4107_Assignment/A1/src/model.bin")
+        self.model = fasttext.load_model("./model.bin")
         # self.load_tf_idf()
 
     # tf-idf implementation by "GEGEFE"
@@ -299,7 +299,7 @@ class IRSystem:
 
 if __name__ == '__main__':
     # irs = IRSystem("C:/Users/user/Documents/GitHub/CSI4107_Assignment/A1/src/Collection/collection.txt", "C:/Users/user/Documents/GitHub/CSI4107_Assignment/A1/src/topics1-50.txt")
-    irs = IRSystem("C:/Users/user/Documents/GitHub/CSI4107_Assignment/A1/src/Collection", "C:/Users/user/Documents/GitHub/CSI4107_Assignment/A1/src/topics1-50.txt")
+    irs = IRSystem("./Collection", "./topics1-50.txt")
     print("Calculating...")
     irs.calculate_result()
     # irs.save_inverted_index("./inverted_index.txt")
