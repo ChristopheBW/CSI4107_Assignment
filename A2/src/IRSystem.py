@@ -21,8 +21,8 @@ def expand_query(query, model, top_n=5, similarity_threshold=0.7):
 
         # Use a generator expression to avoid creating a temporary list
         neighbors = model.get_nearest_neighbors(token, k = top_n)
-        filtered_neighbors = (neighbor for neighbor in neighbors if neighbor[0] > similarity_threshold)
-        nearest_neighbors = list(filtered_neighbors)
+        important_neighbors = (neighbor for neighbor in neighbors if neighbor[0] > similarity_threshold)
+        nearest_neighbors = list(important_neighbors)
 
         # Use list comprehension to add nearest neighbors to the expanded query
         expanded_query.update(neighbor[1] for neighbor in nearest_neighbors)
@@ -298,7 +298,6 @@ class IRSystem:
                 f.write(process_list[i].get())
 
 if __name__ == '__main__':
-    # irs = IRSystem("C:/Users/user/Documents/GitHub/CSI4107_Assignment/A1/src/Collection/collection.txt", "C:/Users/user/Documents/GitHub/CSI4107_Assignment/A1/src/topics1-50.txt")
     irs = IRSystem("./Collection", "./topics1-50.txt")
     print("Calculating...")
     irs.calculate_result()
